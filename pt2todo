@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+
+require File.dirname(__FILE__) + '/config'
+PT2TODO = File.dirname(__FILE__) + '/pivotal_tracker_2_todo_txt.rb'
+
+# Import all stories from pivotal tracker
+puts "Fetching stories from pivotal tracker"
+todos = `ruby #{PT2TODO}`.split("\n").sort
+
+# Remove any active todo items that originated from pivotal tracker
+frompivotal = `#{TODOTXT} list @frompivotal`.split("\n").map{|l| l.split(' ')[0]}
+frompivotal.each{|id| `#{TODOTXT} -f rm #{id}`}
+puts "Removed #{frompivotal.count} todos from active stories"
+
+# Divide between finished and unfinished stories
+finished = todos.select{|t| t =~ /^x /}
+unfinished = todos - finished
+
+# Unfinished stories get appended to todo.txt
+puts "Added #{unfinished.count} todos from active stories"
+File.open(File.expand_path(TODOFILE), 'a') do |f|
+    f.write(unfinished.join("\n"))
+    f.write("\n")
+end
+
+# Finished stories are only written to done.txt if they aren't already there.
+done_todos = File.read(File.expand_path(DONEFILE)).split("\n")
+toappend = finished.select{|f| !done_todos.include? f}
+if toappend.count > 0
+    File.open(File.expand_path(DONEFILE), 'a') do |f|
+        f.write(toappend.join("\n"))
+        f.write("\n")
+    end
+    puts "Added #{toappend.count} finished todos from stories."
+end
